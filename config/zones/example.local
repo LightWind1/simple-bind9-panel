@@ -1,0 +1,5 @@
+zone "example.local" {
+    type master;
+    file "/etc/bind/zones/example.local.zone";
+    allow-transfer { none; };
+};
