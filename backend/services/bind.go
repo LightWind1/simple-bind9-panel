@@ -32,7 +32,7 @@ func GetServerStatus() *models.ServerStatus {
 	}
 
 	// 获取版本
-	out, err := exec.Command(config.RNDCPath, "version").Output()
+	out, err := exec.Command("named", "-v").Output()
 	if err == nil {
 		status.Version = strings.TrimSpace(string(out))
 	}
@@ -42,7 +42,8 @@ func GetServerStatus() *models.ServerStatus {
 
 // RestartNamed 重启 BIND
 func RestartNamed() error {
-	cmd := exec.Command("systemctl", "restart", "named")
+	// 在容器中使用 killall 让 supervisor 自动重启
+	cmd := exec.Command("killall", "named")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to restart named: %s", string(output))
