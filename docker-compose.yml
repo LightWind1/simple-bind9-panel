@@ -4,32 +4,16 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: bind9-panel
-    ports:
-      - "53:53/udp"
-      - "53:53/tcp"
-      - "953:953/tcp"
-      - "8890:8890"
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
     volumes:
       # 持久化数据
       - ./data:/app/data
       - ./backups:/app/backups
-      # 持久化 BIND9 数据和日志
-      - bind9-data:/var/cache/bind
-      - bind9-log:/var/log/named
     environment:
       - PORT=8890
       - DATA_DIR=/app/data
-      - CONFIG_DIR=/app/config
       - BACKUP_DIR=/app/backups
       - NAMED_CONF=/etc/bind/named.conf
     restart: unless-stopped
-    networks:
-      - bind9-network
-
-networks:
-  bind9-network:
-    driver: bridge
-
-volumes:
-  bind9-data:
-  bind9-log:
