@@ -51,6 +51,7 @@ COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 ENV PORT=8890
 ENV DATA_DIR=/app/data
 ENV BACKUP_DIR=/app/backups
+ENV CONFIG_DIR=/app/config
 ENV NAMED_CONF=/etc/bind/named.conf
 
 # 端口

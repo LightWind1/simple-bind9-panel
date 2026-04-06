@@ -4,3 +4,4 @@ backend/frontend/
 data/
 backups/
 *.log
+config-running/

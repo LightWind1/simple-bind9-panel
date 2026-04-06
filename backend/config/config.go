@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var (
@@ -22,6 +23,9 @@ func Init() {
 	RNDCPath = findRNDCTool()
 	NamedConf = getEnv("NAMED_CONF", "/etc/bind/named.conf")
 	Port = getEnv("PORT", ":8890")
+	if !strings.HasPrefix(Port, ":") {
+		Port = ":" + Port
+	}
 }
 
 func getEnv(key, defaultVal string) string {
