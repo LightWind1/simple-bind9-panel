@@ -12,6 +12,7 @@ import (
 	"simple-bind9-panel/config"
 	"simple-bind9-panel/database"
 	"simple-bind9-panel/handlers"
+	"simple-bind9-panel/middleware"
 	"simple-bind9-panel/services"
 )
 
@@ -25,6 +26,9 @@ func main() {
 	// 初始化数据库
 	database.Init(config.DBPath)
 
+	// 初始化默认管理员用户
+	handlers.InitDefaultUser()
+
 	// 初始化服务
 	services.Init()
 
@@ -35,7 +39,7 @@ func main() {
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "X-Auth-Token"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
 	}))
 
@@ -45,10 +49,22 @@ func main() {
 	configHandler := handlers.NewConfigHandler()
 	forwarderHandler := handlers.NewForwarderHandler()
 	logHandler := handlers.NewLogHandler()
+	authHandler := handlers.NewAuthHandler()
 
-	// API 路由
-	api := r.Group("/api")
+	// 公开 API 路由（无需认证）
+	apiPublic := r.Group("/api")
 	{
+		apiPublic.POST("/auth/login", authHandler.Login)
+		apiPublic.POST("/auth/refresh", authHandler.Refresh)
+	}
+
+	// 受保护的 API 路由（需要认证）
+	api := r.Group("/api")
+	api.Use(middleware.AuthMiddleware())
+	{
+		// 用户信息
+		api.GET("/auth/me", authHandler.Me)
+
 		// 服务器状态
 		api.GET("/status", serverHandler.GetStatus)
 		api.POST("/server/restart", serverHandler.Restart)
@@ -139,7 +155,7 @@ func main() {
 		c.Data(200, contentType, data)
 	})
 
-	// 健康检查
+	// 健康检查（不需要认证）
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})

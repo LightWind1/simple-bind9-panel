@@ -60,3 +60,14 @@ type Forwarder struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+// User 用户
+type User struct {
+	ID           string    `json:"id" gorm:"primaryKey;size:36"`
+	Username     string    `json:"username" gorm:"uniqueIndex;size:100"`
+	PasswordHash string    `json:"-" gorm:"size:255"`
+	Email        string    `json:"email" gorm:"size:255"`
+	Role         string    `json:"role" gorm:"size:20;default:admin"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}

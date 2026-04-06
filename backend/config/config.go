@@ -13,6 +13,7 @@ var (
 	BackupDir string
 	RNDCPath  string
 	NamedConf string
+	JWTSecret string
 )
 
 func Init() {
@@ -26,6 +27,8 @@ func Init() {
 	if !strings.HasPrefix(Port, ":") {
 		Port = ":" + Port
 	}
+
+	JWTSecret = getEnv("JWT_SECRET", "change-this-secret-in-production")
 }
 
 func getEnv(key, defaultVal string) string {

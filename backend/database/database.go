@@ -5,6 +5,7 @@ import (
 	"os"
 	"sync"
 
+	"simple-bind9-panel/config"
 	"simple-bind9-panel/models"
 )
 
@@ -19,6 +20,7 @@ type DBStore struct {
 	Records    []models.Record    `json:"records"`
 	Backups    []models.ConfigBackup `json:"backups"`
 	Forwarders []models.Forwarder `json:"forwarders"`
+	Users      []models.User      `json:"users"`
 }
 
 func Init(dbPath string) {
@@ -48,6 +50,62 @@ func Init(dbPath string) {
 	if DB.Forwarders == nil {
 		DB.Forwarders = []models.Forwarder{}
 	}
+	if DB.Users == nil {
+		DB.Users = []models.User{}
+	}
+}
+
+// User operations
+func GetUserByID(id string) (*models.User, error) {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+
+	for _, user := range DB.Users {
+		if user.ID == id {
+			return &user, nil
+		}
+	}
+	return nil, nil
+}
+
+func GetUserByUsername(username string) (*models.User, error) {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+
+	for _, user := range DB.Users {
+		if user.Username == username {
+			return &user, nil
+		}
+	}
+	return nil, nil
+}
+
+func ListUsers() ([]models.User, error) {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+
+	return DB.Users, nil
+}
+
+func CreateUser(user *models.User) error {
+	dataMutex.Lock()
+	defer dataMutex.Unlock()
+
+	DB.Users = append(DB.Users, *user)
+	return Save(config.DBPath)
+}
+
+func UpdateUser(user *models.User) error {
+	dataMutex.Lock()
+	defer dataMutex.Unlock()
+
+	for i, u := range DB.Users {
+		if u.ID == user.ID {
+			DB.Users[i] = *user
+			return Save(config.DBPath)
+		}
+	}
+	return nil
 }
 
 func Save(dbPath string) error {
