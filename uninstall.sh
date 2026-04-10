@@ -107,9 +107,11 @@ if [[ -f /etc/bind/named.conf.local.${APP_NAME}.bak ]]; then
     fi
 fi
 
-# 9. 重启 BIND9
-log_info "重启 BIND9 服务..."
-systemctl restart bind9 2>/dev/null || true
+# 9. 重启 BIND9 (如果存在)
+if systemctl list-unit-files | grep -q "^bind9.service"; then
+    log_info "重启 BIND9 服务..."
+    systemctl restart bind9 2>/dev/null || true
+fi
 
 echo ""
 echo "============================================"
@@ -117,4 +119,8 @@ echo "  卸载完成!"
 echo "============================================"
 echo ""
 log_info "如需重新安装，请运行: sudo ./install.sh"
+echo ""
+log_info "如需卸载 BIND9，请自行执行:"
+echo "  sudo apt remove --purge bind9 bind9utils bind9-doc"
+echo "  sudo apt autoremove"
 echo ""
