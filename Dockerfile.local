@@ -1,0 +1,42 @@
+# Simple BIND9 Panel - Pre-built Binary
+# 不需要从网络下载 Go 依赖
+
+FROM debian:bookworm-slim
+
+# 安装运行时依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bind9 \
+    bind9utils \
+    bind9-doc \
+    supervisor \
+    procps \
+    psmisc \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# 创建目录
+RUN mkdir -p /var/log/supervisor /var/run/named /app/data /app/backups /app/config
+
+# 复制预编译的二进制文件
+COPY backend/server /app/server
+
+# 复制配置文件
+COPY config/named.conf /etc/bind/named.conf
+COPY config/named.conf.options /etc/bind/named.conf.options
+COPY config/named.conf.local /etc/bind/named.conf.local
+COPY config/zones /etc/bind/zones
+COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# 环境变量
+ENV PORT=8890
+ENV DATA_DIR=/app/data
+ENV BACKUP_DIR=/app/backups
+ENV CONFIG_DIR=/app/config
+ENV NAMED_CONF=/etc/bind/named.conf
+
+# 端口
+EXPOSE 8890 53/udp 53/tcp 953
+
+# 启动 supervisor
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
