@@ -65,28 +65,35 @@ func (h *LogHandler) GetLogs(c *gin.Context) {
 
 // getSyslogLogs 从 syslog 获取日志
 func (h *LogHandler) getSyslogLogs(lines int, filter string, c *gin.Context) {
-	var cmd *exec.Cmd
-	
-	if filter != "" {
-		cmd = exec.Command("tail", "-n", strconv.Itoa(lines), "/var/log/syslog")
-	} else {
-		cmd = exec.Command("tail", "-n", strconv.Itoa(lines), "/var/log/syslog")
-	}
-	
-	output, err := cmd.Output()
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"logs":  []LogEntry{},
-			"count": 0,
-			"error": "无法读取日志",
-		})
-		return
+	// 尝试多个日志源
+	logFiles := []string{
+		"/var/log/supervisor/named-stdout.log",
+		"/var/log/supervisor/named-stderr.log",
+		"/var/log/named/query.log",
+		"/var/log/named/default.log",
 	}
 
-	logs := parseSyslogLogs(string(output), filter)
+	for _, logFile := range logFiles {
+		cmd := exec.Command("tail", "-n", strconv.Itoa(lines), logFile)
+		output, err := cmd.Output()
+		if err != nil {
+			continue
+		}
+		if len(output) > 0 {
+			logs := parseGenericLogs(string(output), filter)
+			c.JSON(http.StatusOK, gin.H{
+				"logs":  logs,
+				"count": len(logs),
+			})
+			return
+		}
+	}
+
+	// 所有日志源都失败
 	c.JSON(http.StatusOK, gin.H{
-		"logs":  logs,
-		"count": len(logs),
+		"logs":  []LogEntry{},
+		"count": 0,
+		"error": "无法读取日志文件",
 	})
 }
 
@@ -186,4 +193,64 @@ func getPriorityFromLine(line string) string {
 		return "info"
 	}
 	return "debug"
+}
+
+// parseGenericLogs 解析通用日志格式
+func parseGenericLogs(output, filter string) []LogEntry {
+	var logs []LogEntry
+	lines := strings.Split(output, "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// 应用过滤器
+		if filter != "" && !strings.Contains(strings.ToLower(line), strings.ToLower(filter)) {
+			continue
+		}
+
+		// 解析时间戳 - 多种格式支持
+		t := time.Now()
+		priority := getPriorityFromLine(line)
+		message := line
+
+		// 尝试解析 ISO 时间格式 (2026-04-11T03:15:00)
+		if len(line) > 19 && line[4] == '-' && line[7] == '-' {
+			parsed, err := time.Parse("2006-01-02T15:04:05", line[:19])
+			if err == nil {
+				t = parsed
+				message = line[19:]
+				if len(message) > 0 && (message[0] == ' ' || message[0] == '-' || message[0] == ':') {
+					message = strings.TrimLeft(message[:min(len(message), 200)], " -:")
+				}
+			}
+		}
+
+		// 尝试解析 syslog 格式 (Apr 11 03:15:00)
+		if len(line) > 15 && line[3] == ' ' {
+			year := time.Now().Year()
+			ts := fmt.Sprintf("%d-%s", year, line[:15])
+			parsed, err := time.Parse("2006-Jan-02 15:04:05", ts)
+			if err == nil {
+				t = parsed
+				// 找到消息开始的位置
+				idx := strings.Index(line, ": ")
+				if idx > 0 && idx < len(line)-2 {
+					message = line[idx+2:]
+				} else if idx := strings.Index(line, " "); idx > 0 && idx < len(line)-1 {
+					message = line[idx+1:]
+				}
+			}
+		}
+
+		logs = append(logs, LogEntry{
+			Timestamp: t.Format("2006-01-02 15:04:05"),
+			Priority:  priority,
+			Message:   message,
+		})
+	}
+
+	return logs
 }

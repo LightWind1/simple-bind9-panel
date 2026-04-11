@@ -130,7 +130,9 @@ function App() {
       }
       setToken(data.access_token)
       localStorage.setItem('token', data.access_token)
-      loadStatus()
+      // Don't call loadStatus() here - useEffect with [currentTab, token] will handle it
+      // Calling loadStatus() immediately would use the stale token from closure (null)
+      // because React state updates are asynchronous
     } catch (e: any) {
       setLoginError(e.message || 'Login failed')
     } finally {
