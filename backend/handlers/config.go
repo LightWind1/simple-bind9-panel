@@ -154,6 +154,33 @@ func (h *ConfigHandler) ListBackups(c *gin.Context) {
 	c.JSON(http.StatusOK, database.DB.Backups)
 }
 
+// GetBackupContent 获取备份内容
+func (h *ConfigHandler) GetBackupContent(c *gin.Context) {
+	name := c.Param("name")
+
+	// 找到备份
+	var backupPath string
+	for _, b := range database.DB.Backups {
+		if b.Name == name {
+			backupPath = b.FilePath
+			break
+		}
+	}
+
+	if backupPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Backup not found"})
+		return
+	}
+
+	content, err := os.ReadFile(backupPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read backup"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"content": string(content)})
+}
+
 // RestoreBackup 恢复备份
 func (h *ConfigHandler) RestoreBackup(c *gin.Context) {
 	name := c.Param("name")

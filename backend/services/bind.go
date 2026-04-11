@@ -42,11 +42,16 @@ func GetServerStatus() *models.ServerStatus {
 
 // RestartNamed 重启 BIND
 func RestartNamed() error {
-	// 在容器中使用 killall 让 supervisor 自动重启
-	cmd := exec.Command("killall", "named")
+	// 使用 killall 让 systemd 自动重启 (需要 sudo)
+	cmd := exec.Command("sudo", "killall", "named")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to restart named: %s", string(output))
+		// 如果 sudo 失败，尝试直接运行
+		cmd = exec.Command("killall", "named")
+		output, err = cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to restart named: %s", string(output))
+		}
 	}
 	log.Println("BIND9 restarted")
 	return nil
@@ -54,10 +59,16 @@ func RestartNamed() error {
 
 // ReloadNamed 重载配置
 func ReloadNamed() error {
-	cmd := exec.Command(config.RNDCPath, "reload")
+	// 优先使用系统的 rndc，如果权限不足则尝试 sudo
+	cmd := exec.Command("sudo", config.RNDCPath, "reload")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to reload named: %s", string(output))
+		// 如果 sudo 失败，尝试直接运行（以防已经以 root 运行）
+		cmd = exec.Command(config.RNDCPath, "reload")
+		output, err = cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to reload named: %s", string(output))
+		}
 	}
 	log.Println("BIND9 config reloaded")
 	return nil

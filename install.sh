@@ -97,11 +97,25 @@ cp "${SCRIPT_DIR}/config/named.conf" /etc/bind/named.conf
 cp "${CONFIG_DIR}/named.conf.local" /etc/bind/named.conf.local
 cp "${CONFIG_DIR}/named.conf.options" /etc/bind/named.conf.options
 
-# 确保 BIND9 目录权限
-chown -R bind:bind /etc/bind
+# BIND9 配置 bind 可写（方便 web 面板修改）
+chown bind:bind /etc/bind/named.conf /etc/bind/named.conf.local /etc/bind/named.conf.options
+chmod 660 /etc/bind/named.conf /etc/bind/named.conf.local /etc/bind/named.conf.options
 chown -R bind:bind /var/cache/bind
 
-# 7. 创建 systemd 服务
+# 创建应用数据目录并设置权限
+mkdir -p "${DATA_DIR}"
+chown -R bind:bind "${DATA_DIR}"
+
+# 创建备份目录
+mkdir -p "${APP_DIR}/backups"
+chown -R bind:bind "${APP_DIR}/backups"
+
+# 7. 配置 rndc 权限 - 让 bind 用户可以执行 rndc reload
+log_info "配置 rndc 权限..."
+echo 'bind ALL=(root) NOPASSWD: /usr/sbin/rndc reload, /usr/sbin/rndc status, /usr/sbin/named-checkconf, /usr/sbin/named-checkzone' > /etc/sudoers.d/bind-panel
+chmod 440 /etc/sudoers.d/bind-panel
+
+# 8. 创建 systemd 服务
 log_info "创建 systemd 服务..."
 cat > "${SERVICE_FILE}" << EOF
 [Unit]
@@ -110,8 +124,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=bind
+Group=bind
 ExecStart=${BINARY_PATH}
 Restart=on-failure
 RestartSec=5s

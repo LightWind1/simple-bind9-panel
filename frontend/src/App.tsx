@@ -76,6 +76,10 @@ function App() {
   const [expandedZones, setExpandedZones] = useState<number[]>([])
   const [configData, setConfigData] = useState<any>(null)
   const [rawConfig, setRawConfig] = useState('')
+  const [backups, setBackups] = useState<any[]>([])
+  const [showBackupModal, setShowBackupModal] = useState(false)
+  const [selectedBackup, setSelectedBackup] = useState<any>(null)
+  const [backupContent, setBackupContent] = useState('')
 
   // Auth state
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'))
@@ -240,7 +244,7 @@ function App() {
       const params = new URLSearchParams({ lines: logLines })
       if (logFilter) params.append('filter', logFilter)
       const data = await apiFetch(`${API_BASE}/logs?${params}`)
-      setLogs(data)
+      setLogs(data.logs || [])
     } catch (e: any) {
       if (e.message === 'Unauthorized') {
         setToken(null)
@@ -851,6 +855,11 @@ function App() {
           <div>
             <div className="content-header" style={{marginBottom: 24}}>
               <h2 style={{margin: 0}}>⚙️ BIND9 配置</h2>
+              <button className="btn" onClick={async () => {
+                const data = await apiFetch(`${API_BASE}/config/backup`)
+                setBackups(data || [])
+                setShowBackupModal(true)
+              }}>📋 版本历史</button>
             </div>
             {loading ? (
               <div className="loading">加载中...</div>
@@ -880,14 +889,110 @@ function App() {
                       alert('保存失败: ' + e)
                     }
                   }}>💾 保存配置</button>
-                  <button className="btn" onClick={() => {
-                    apiFetch(`${API_BASE}/config/validate`, { method: 'POST' })
-                      .then(() => alert('配置有效'))
-                      .catch(e => alert('配置无效: ' + e))
+                  <button className="btn" onClick={async () => {
+                    try {
+                      await apiFetch(`${API_BASE}/config/validate`, {
+                        method: 'POST',
+                        body: JSON.stringify({ content: rawConfig }),
+                      })
+                      alert('配置有效')
+                    } catch (e: any) {
+                      alert('配置无效: ' + (e.message || e))
+                    }
                   }}>✓ 验证配置</button>
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* 备份管理弹窗 */}
+        {showBackupModal && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', zIndex: 1000
+          }}>
+            <div className="card" style={{width: 700, maxHeight: '80vh', overflow: 'auto'}}>
+              <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: 16}}>
+                <h3 style={{margin: 0}}>📋 配置版本历史</h3>
+                <button className="btn" onClick={() => setShowBackupModal(false)}>✕</button>
+              </div>
+              {backups.length === 0 ? (
+                <div className="empty-state">暂无备份记录</div>
+              ) : (
+                <div className="table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>版本名称</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {backups.map((backup: any) => (
+                        <tr key={backup.id}>
+                          <td>{backup.name}</td>
+                          <td>{new Date(backup.created_at).toLocaleString('zh-CN')}</td>
+                          <td>
+                            <button className="btn btn-small" onClick={async () => {
+                              try {
+                                const data = await apiFetch(`${API_BASE}/config/backup/${backup.name}/content`)
+                                setBackupContent(data.content || '')
+                                setSelectedBackup(backup)
+                              } catch (e) {
+                                alert('预览失败')
+                              }
+                            }}>👁️ 预览</button>
+                            <button className="btn btn-small btn-danger" onClick={async () => {
+                              if (!confirm('确定要恢复到此版本吗？')) return
+                              try {
+                                await apiFetch(`${API_BASE}/config/backup/${backup.name}/restore`, { method: 'POST' })
+                                alert('已恢复到: ' + backup.name)
+                                setShowBackupModal(false)
+                                loadConfig()
+                              } catch (e: any) {
+                                alert('恢复失败: ' + (e.message || e))
+                              }
+                            }}>🔄 恢复</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 备份预览弹窗 */}
+        {selectedBackup && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', zIndex: 1001
+          }}>
+            <div className="card" style={{width: 800, maxHeight: '80vh', overflow: 'auto'}}>
+              <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: 16}}>
+                <h3 style={{margin: 0}}>👁️ 预览: {selectedBackup.name}</h3>
+                <button className="btn" onClick={() => { setSelectedBackup(null); setBackupContent('') }}>✕</button>
+              </div>
+              <textarea
+                value={backupContent}
+                readOnly
+                style={{
+                  ...inputStyle,
+                  width: '100%',
+                  minHeight: 400,
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  resize: 'vertical',
+                  background: '#0d1117',
+                }}
+              />
+            </div>
           </div>
         )}
 

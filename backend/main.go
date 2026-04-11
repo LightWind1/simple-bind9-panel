@@ -88,6 +88,7 @@ func main() {
 		api.PUT("/config", configHandler.UpdateConfig)
 		api.POST("/config/validate", configHandler.ValidateConfig)
 		api.GET("/config/backup", configHandler.ListBackups)
+		api.GET("/config/backup/:name/content", configHandler.GetBackupContent)
 		api.POST("/config/backup/:name/restore", configHandler.RestoreBackup)
 
 		// DNS转发管理
